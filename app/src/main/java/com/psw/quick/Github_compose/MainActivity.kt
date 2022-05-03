@@ -1,12 +1,12 @@
 package com.psw.quick.Github_compose
 
+import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -32,7 +32,6 @@ import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import com.psw.quick.Github_compose.ui.theme.*
 import com.psw.quick.Github_compose.viewmodel.MainViewModel
-import kotlinx.coroutines.flow.collect
 
 class MainActivity : ComponentActivity() {
 
@@ -83,22 +82,69 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun Navigation(navController: NavHostController) {
-    val vModel = getViewModel()
+    val vModel = getMainViewModel()
+    val context = LocalContext.current
 
     NavHost(navController, startDestination = NavigationItem.tab1.route) {
         composable(NavigationItem.tab1.route) {
-            vModel.initUserInfo()
-            tab1UI(navController)
+            setUpTab1(context, vModel)
         }
         composable(NavigationItem.tab2.route) {
-            vModel.initUserInfo()
-            tab2UI(navController)
+            setUpTab2(navController, vModel)
         }
         composable(NavigationItem.tab3.route) {
-            vModel.initUserInfo()
-            tab3UI(navController)
+            setUpTab3(navController, vModel)
         }
     }
+}
+
+@Composable
+private fun setUpTab3(
+    navController: NavHostController,
+    vModel: MainViewModel
+) {
+    BackHandler {
+        navController.navigate(NavigationItem.tab2.route) {
+            popUpTo(0) {
+                inclusive = true
+            }
+        }
+    } // onBackPressed
+
+    vModel.initUserInfo()
+    tab3UI()
+}
+
+@Composable
+private fun setUpTab2(
+    navController: NavHostController,
+    vModel: MainViewModel
+) {
+    BackHandler {
+        navController.navigate(NavigationItem.tab1.route) {
+            popUpTo(0) {
+                inclusive = true
+            }
+        }
+    } // onBackPressed
+
+    vModel.initUserInfo()
+    tab2UI()
+}
+
+@Composable
+private fun setUpTab1(
+    context: Context,
+    vModel: MainViewModel
+) {
+    BackHandler {
+        (context as MainActivity)?.apply {
+            finish()
+        }
+    } // onBackPressed
+
+    vModel.initUserInfo()
+    tab1UI()
 }
 
 
@@ -132,38 +178,15 @@ fun mainListUI(fnView : LazyListScope.()-> Unit){
 }
 
 @Composable
-fun LazyListState.OnBottomReached(
-    onLoadMore  : () -> Unit
-){
-    val shouldLoadMore = remember {
-        derivedStateOf {
-            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()
-                ?: return@derivedStateOf true
-
-            lastVisibleItem.index == layoutInfo.totalItemsCount - 1
-        }
-    }
-
-    // Convert the state into a cold flow and collect
-    LaunchedEffect(shouldLoadMore){
-        snapshotFlow { shouldLoadMore.value }
-            .collect {
-                if (it) onLoadMore()
-            }
-
-    }
-}
-
-@Composable
-fun getViewModel () : MainViewModel {
+fun getMainViewModel () : MainViewModel {
     val context = LocalContext.current
     val vModel = ( context as MainActivity).vModel
     return vModel
 }
 
 @Composable
-fun tab1UI(navController: NavHostController) {
-    val vModel = getViewModel()
+fun tab1UI() {
+    val vModel = getMainViewModel()
     Column(
         Modifier
             .fillMaxWidth()
@@ -172,7 +195,7 @@ fun tab1UI(navController: NavHostController) {
         verticalArrangement = Arrangement.Center
 
     ) {
-        makeHeaderUI(navController)
+        makeHeaderUI()
         Spacer(modifier = Modifier.height(26.dp))
 
         when ( val rst = vModel.uiState.collectAsState().value) {
@@ -195,8 +218,8 @@ fun tab1UI(navController: NavHostController) {
 }
 
 @Composable
-fun tab2UI(navController: NavHostController) {
-    val vModel = getViewModel()
+fun tab2UI() {
+    val vModel = getMainViewModel()
     Column(
         Modifier
             .fillMaxWidth()
@@ -205,7 +228,7 @@ fun tab2UI(navController: NavHostController) {
         verticalArrangement = Arrangement.Center
 
     ) {
-        makeHeaderUI(navController)
+        makeHeaderUI()
         Spacer(modifier = Modifier.height(26.dp))
 
         when ( val rst = vModel.uiState.collectAsState().value) {
@@ -227,8 +250,8 @@ fun tab2UI(navController: NavHostController) {
 }
 
 @Composable
-fun tab3UI(navController: NavHostController) {
-    val vModel = getViewModel()
+fun tab3UI() {
+    val vModel = getMainViewModel()
 
     Column(
         Modifier
@@ -238,7 +261,7 @@ fun tab3UI(navController: NavHostController) {
         verticalArrangement = Arrangement.Center
 
     ) {
-        makeHeaderUI(navController)
+        makeHeaderUI()
         Spacer(modifier = Modifier.height(26.dp))
 
         when ( val rst = vModel.uiState.collectAsState().value) {
@@ -301,10 +324,9 @@ private fun makeListUI() {
 fun dpToSp(dp: Dp) = with(LocalDensity.current) { dp.toSp() }
 
 @Composable
-private fun makeHeaderUI(navController: NavHostController) {
+private fun makeHeaderUI() {
 
-    val context = LocalContext.current
-    val vModel = ( context.getActivity() as MainActivity).vModel
+    val vModel = getMainViewModel()
 
     Box(
         Modifier
@@ -379,19 +401,12 @@ fun BottomNavigationBar(navController: NavController) {
                 selected = currentRoute == item.route,
                 onClick = {
                     navController.navigate(item.route) {
-                        // Pop up to the start destination of the graph to
-                        // avoid building up a large stack of destinations
-                        // on the back stack as users select items
-
                         navController.graph.startDestinationRoute?.let { route ->
                             popUpTo(route) {
                                 saveState = true
                             }
                         }
-                        // Avoid multiple copies of the same destination when
-                        // reselecting the same item
                         launchSingleTop = true
-                        // Restore state when reselecting a previously selected item
                         restoreState = true
                     }
                 }
