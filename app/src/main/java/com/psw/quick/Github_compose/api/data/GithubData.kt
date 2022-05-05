@@ -9,7 +9,10 @@ data class User(
     var followers    : Int,
     var following    : Int,
     var bio          : String,
-    var avatar_url   : String
+    var avatar_url   : String,
+
+    // 통신무관한 extendData
+    var git_count    : Int
 
 ) : GithubData()
 

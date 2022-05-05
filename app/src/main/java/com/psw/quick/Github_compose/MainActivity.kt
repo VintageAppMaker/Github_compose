@@ -3,10 +3,14 @@ package com.psw.quick.Github_compose
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -17,15 +21,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
@@ -38,8 +44,6 @@ import com.psw.quick.Github_compose.viewmodel.MainViewModel
 import com.skydoves.landscapist.glide.GlideImage
 
 class MainActivity : ComponentActivity() {
-
-    var count : Int = 0
 
     lateinit var vModel: MainViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,7 +70,6 @@ class MainActivity : ComponentActivity() {
     private fun setUpUI() {
         setContent {
             setSystemBarColor()
-
             GithubComposeTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
@@ -74,12 +77,21 @@ class MainActivity : ComponentActivity() {
                     mainView(context = this, vModel = vModel)
                 }
             }
-            //vModel.getUserInfo()
         }
     }
 }
 
+@Composable
+private fun CircularProgressAnimated(){
+    val progressValue = 0.75f
+    val infiniteTransition = rememberInfiniteTransition()
 
+    val progressAnimationValue by infiniteTransition.animateFloat(
+        initialValue = 0.0f,
+        targetValue = progressValue,animationSpec = infiniteRepeatable(animation = tween(900)))
+
+    CircularProgressIndicator(progress = progressAnimationValue)
+}
 
 @Composable
 private fun mainView(
@@ -92,10 +104,10 @@ private fun mainView(
         }
     } // onBackPressed
 
-    // 초기화
+    // 정보초기화
     vModel.initUserInfo()
 
-    // UI
+    // UI설정
     githubListView()
 
     // 통신
@@ -104,18 +116,13 @@ private fun mainView(
 
 
 @Composable
-fun mainListUI(fnView : LazyListScope.()-> Unit){
+fun mainList(fnView : LazyListScope.()-> Unit){
 
     val scrollState = rememberLazyListState()
-    val context = LocalContext.current
-    val act = ( context as MainActivity )
-
-    var cnt =  remember {
-        act.count
-    }
-
+    val vModel = getMainViewModel()
     scrollState.OnBottomReached {
-        Toast.makeText(context, "LazyColumn end ${cnt++}", Toast.LENGTH_LONG).show()
+        if(vModel.nNextPage == vModel.IS_END_PAGE) return@OnBottomReached
+        vModel.loadRepoInfoWithPage()
     }
 
     LazyColumn(
@@ -141,29 +148,46 @@ fun getMainViewModel () : MainViewModel {
 @Composable
 fun githubListView() {
     val vModel = getMainViewModel()
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .background(MaterialTheme.colors.bottomNaviBackgroundcolor()),
-        verticalArrangement = Arrangement.Center
+    val bLoading by vModel.bProgress.collectAsState()
 
+    // 중앙정렬
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxSize()
     ) {
 
-        // 통신상태 변경
-        when ( val rst = vModel.uiState.collectAsState().value) {
-            is MainViewModel.UIState.Loaded ->{
-                makeHeader()
-                Spacer(modifier = Modifier.height(26.dp))
-                makeGithubList(lst = rst.data)
-            }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .background(MaterialTheme.colors.bottomNaviBackgroundcolor()),
+            verticalArrangement = Arrangement.Center
 
-            else -> {
-                // 전체크기의 글자 중앙정렬시
-                fullCenterTextView("통신중...")
+        ) {
+
+            // 통신상태 변경
+            when ( val rst = vModel.uiState.collectAsState().value) {
+                // 정상완료
+                is MainViewModel.UIState.Loaded ->{
+                    makeHeader()
+                    Spacer(modifier = Modifier.height(26.dp))
+                    makeGithubList(lst = rst.data)
+                }
+
+                // 에러
+                is MainViewModel.UIState.Error ->{
+                    fullCenterTextView("\uD83D\uDED1 ${rst.message}")
+                }
+
+                // 준비중
+                is MainViewModel.UIState.Idle ->{
+                    fullCenterTextView("⏳ 준비중...")
+                }
             }
         }
 
+        if (bLoading)
+            CircularProgressAnimated()
     }
 
 }
@@ -185,7 +209,7 @@ private fun fullCenterTextView(s : String) {
 
 @Composable
 private fun makeGithubList(lst : List<GithubData>) {
-    mainListUI {
+    mainList {
         items(lst){ data ->
             when(data){
                 is User -> {
@@ -204,6 +228,7 @@ private fun makeGithubList(lst : List<GithubData>) {
     }
 }
 
+
 @Composable
 private fun makeUserCard(data : User) {
     Card(
@@ -213,7 +238,8 @@ private fun makeUserCard(data : User) {
             .fillMaxHeight(),
         shape = MaterialTheme.shapes.medium,
         elevation = 5.dp,
-        backgroundColor = MaterialTheme.colors.surface
+        backgroundColor = cardBack1,
+        contentColor    = cardFront1
     ) {
         Row(
             modifier = Modifier
@@ -233,13 +259,43 @@ private fun makeUserCard(data : User) {
                 imageModel = "${data.avatar_url}",
                 contentScale = ContentScale.Crop)
 
-            Text("${data.bio}",
-                Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight()
-                    .padding(start = 25.dp),
-                style = MaterialTheme.typography.body1
-            )
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+            ){
+                Text("${data.login}",
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(start = 25.dp),
+                    style = TextStyle(color = Color(0xFFFFEB3B), fontSize = dpToSp(dp = 20.dp))
+                )
+
+                Text("repositories: ${data.git_count}",
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(start = 25.dp),
+                    style = MaterialTheme.typography.body1
+                )
+
+                Text("${data.bio}",
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(start = 25.dp),
+                    style = MaterialTheme.typography.body1
+                )
+
+                Text("followers : ${data.followers} following : ${data.following} ",
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .padding(start = 25.dp),
+                    style = MaterialTheme.typography.body1
+                )
+
+            }
         }
     }
 }
@@ -370,30 +426,37 @@ private fun makeRepoCard(data : Repo) {
 }
 
 
+@OptIn(ExperimentalAnimationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun makeHeader() {
+    val str = ""
+    var searchText by remember { mutableStateOf(TextFieldValue(str, selection = TextRange(str.length))) }
+    val focusRequester = remember { FocusRequester() }
 
-    Box(
-        Modifier
-            .wrapContentHeight()
-            .fillMaxWidth()
-            .background(
-                color = MaterialTheme.colors.headerBackgroundcolor()
-            )
-            .clickable(onClick = {
+    val vModel = getMainViewModel()
+    Row(modifier = Modifier
+        .fillMaxWidth()
+        .wrapContentHeight()){
 
-            })
-    ) {
+        Button( modifier = Modifier
+            .width(100.dp)
+            .height(50.dp), onClick = {
+                vModel.getUserInfo(searchText.text)
+        } ){
+            Text("search")
+        }
 
-        Text(
-            text = "Header",
-            color = MaterialTheme.colors.headerForegroundcolor(),
-            fontSize = dpToSp(dp = 30.dp),
-            textAlign = TextAlign.Center,
+        TextField(
+            value = searchText,
+            onValueChange = { searchText = it },
             modifier = Modifier
-                .align(Alignment.Center)
-                .padding(14.dp)
+                .focusRequester(focusRequester)
+                .height(50.dp)
+                .fillMaxWidth()
         )
+        LaunchedEffect(Unit) {
+            //focusRequester.requestFocus()
+        }
     }
 }
 

@@ -12,5 +12,5 @@ val tealDark = Color(0xFF004c40)
 val red100 = Color(0xFFff8a80)
 val redDark = Color(0xFFc85a54)
 
-val headerBackgroundLight  = Color(0xFFc85a54)
-val headerBackgroundDark   = Color(0xFFFFC107)
+val cardBack1  = Color(0xFF7E7E7E)
+val cardFront1 = Color(0xFFDFDEDD)
