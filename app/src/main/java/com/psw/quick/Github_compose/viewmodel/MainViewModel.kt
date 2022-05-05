@@ -46,6 +46,8 @@ class MainViewModel : ViewModel() {
         _uiState.value = UIState.Loading
         bProgress.value = true
 
+        nNextPage = FIRST_PAGE
+
         // 처음 검색한 이름 저장
         sUserName = name
         IORoutine({
