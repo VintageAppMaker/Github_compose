@@ -14,3 +14,6 @@ val redDark = Color(0xFFc85a54)
 
 val cardBack1  = Color(0xFF7E7E7E)
 val cardFront1 = Color(0xFFDFDEDD)
+
+val buttonBack = Color(0xFF6B6B6B)
+val progressColor = Color(0xFFC2185B)

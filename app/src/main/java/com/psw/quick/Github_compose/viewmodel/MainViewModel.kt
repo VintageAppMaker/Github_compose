@@ -53,12 +53,16 @@ class MainViewModel : ViewModel() {
         IORoutine({
 
             val listRepo: MutableList<GithubData> = Api.github.listRepos(name) as MutableList<GithubData>
+            listRepo?.let{
+                it.forEachIndexed { index, repo ->
+                    if(repo is Repo) repo.name = "${index}.${repo.name}"
+                }
+            }
             val userInfo = Api.github.getUser(name)
 
-            // 레포지토리 전체개수 정보
-            userInfo.git_count = listRepo.size
-
             listRepo.add(0, userInfo)
+
+
 
             // 누적한다.
             lstMain = listRepo
@@ -103,7 +107,7 @@ class MainViewModel : ViewModel() {
 
         bProgress.value = true
 
-        Api.github.listReposWithPage(sUserName, nNextPage++).enqueue( object:
+        Api.github.listReposWithPage(sUserName, ++nNextPage).enqueue( object:
 
             Callback<List<Repo>> {
 
@@ -131,7 +135,7 @@ class MainViewModel : ViewModel() {
                 toNextPageWithEnd()
 
                 repos?.let{
-                    it.forEachIndexed { index, repo ->   repo.name = "${repo.name}" }
+                    it.forEachIndexed { index, repo ->   repo.name = "${lstMain.size -1  + index}.${repo.name}" }
                 }
 
                 lstMain.addAll(repos)

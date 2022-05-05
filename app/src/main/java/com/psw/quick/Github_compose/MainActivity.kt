@@ -1,7 +1,9 @@
 package com.psw.quick.Github_compose
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -83,14 +85,14 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun CircularProgressAnimated(){
-    val progressValue = 0.75f
+    val progressValue = 1.0f
     val infiniteTransition = rememberInfiniteTransition()
 
     val progressAnimationValue by infiniteTransition.animateFloat(
         initialValue = 0.0f,
-        targetValue = progressValue,animationSpec = infiniteRepeatable(animation = tween(900)))
+        targetValue = progressValue,animationSpec = infiniteRepeatable(animation = tween(1000)))
 
-    CircularProgressIndicator(progress = progressAnimationValue)
+    CircularProgressIndicator(progress = progressAnimationValue, color = progressColor)
 }
 
 @Composable
@@ -148,6 +150,8 @@ fun getMainViewModel () : MainViewModel {
 @Composable
 fun githubListView() {
     val vModel = getMainViewModel()
+
+    // 로딩 프로그레시브 처리
     val bLoading by vModel.bProgress.collectAsState()
 
     // 중앙정렬
@@ -169,6 +173,7 @@ fun githubListView() {
             when ( val rst = vModel.uiState.collectAsState().value) {
                 // 정상완료
                 is MainViewModel.UIState.Loaded ->{
+                    Spacer(modifier = Modifier.height(12.dp))
                     makeHeader()
                     Spacer(modifier = Modifier.height(26.dp))
                     makeGithubList(lst = rst.data)
@@ -271,7 +276,7 @@ private fun makeUserCard(data : User) {
                     style = TextStyle(color = Color(0xFFFFEB3B), fontSize = dpToSp(dp = 20.dp))
                 )
 
-                Text("repositories: ${data.git_count}",
+                Text("repositories: ${data.public_repos}",
                     Modifier
                         .fillMaxWidth()
                         .wrapContentHeight()
@@ -307,9 +312,18 @@ private fun makeStar(n : Int) : String{
     (1..n).forEach { s = s + "⭐" }
     return s
 }
+
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 private fun makeRepoCard(data : Repo) {
+    val context = LocalContext.current
     Card(
+        onClick = {
+            Intent(Intent.ACTION_VIEW, Uri.parse(data.clone_url))?.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(this)
+            }
+        },
         modifier = Modifier
             .padding(10.dp)
             .fillMaxWidth()
@@ -317,6 +331,7 @@ private fun makeRepoCard(data : Repo) {
         shape = RoundedCornerShape(12.dp), //MaterialTheme.shapes.medium,
         elevation = 5.dp,
         backgroundColor = MaterialTheme.colors.surface
+
     ) {
         Column(modifier = Modifier
             .fillMaxWidth()
@@ -410,7 +425,7 @@ private fun makeRepoCard(data : Repo) {
                         )
 
                         Text(
-                            "${data.size}kb",
+                            getSizeString(data.size.toLong()),
                             Modifier
                                 .padding(end = 16.dp)
                                 .fillMaxWidth(),
@@ -425,6 +440,14 @@ private fun makeRepoCard(data : Repo) {
     }
 }
 
+fun getSizeString(nSize : Long): String {
+    return when {
+        nSize < 1000        -> "${nSize}kb"
+        nSize > 1000 * 1000 -> "${nSize / (1000 * 1000)}G"
+        else                -> "${nSize /1000}mb"
+
+    }
+}
 
 @OptIn(ExperimentalAnimationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -436,14 +459,27 @@ private fun makeHeader() {
     val vModel = getMainViewModel()
     Row(modifier = Modifier
         .fillMaxWidth()
-        .wrapContentHeight()){
+        .height(55.dp)){
 
-        Button( modifier = Modifier
-            .width(100.dp)
-            .height(50.dp), onClick = {
-                vModel.getUserInfo(searchText.text)
-        } ){
-            Text("search")
+        Button(modifier = Modifier.fillMaxHeight(),
+            onClick = { vModel.getUserInfo(searchText.text) },
+            colors = ButtonDefaults.buttonColors(
+                backgroundColor = buttonBack,
+                contentColor = Color.White)
+        ) {
+            // 중앙정렬
+            Column(
+                modifier = Modifier .wrapContentWidth(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "search",
+                    fontSize = dpToSp(dp = 18.dp),
+                    style = TextStyle(textAlign = TextAlign.Center)
+                )
+            }
+
         }
 
         TextField(
@@ -451,8 +487,10 @@ private fun makeHeader() {
             onValueChange = { searchText = it },
             modifier = Modifier
                 .focusRequester(focusRequester)
-                .height(50.dp)
-                .fillMaxWidth()
+                .fillMaxHeight()
+                .fillMaxWidth(),
+            maxLines = 1,
+            singleLine = true
         )
         LaunchedEffect(Unit) {
             //focusRequester.requestFocus()
