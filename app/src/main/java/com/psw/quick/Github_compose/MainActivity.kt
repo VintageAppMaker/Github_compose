@@ -10,28 +10,32 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import com.psw.quick.Github_compose.api.data.GithubData
+import com.psw.quick.Github_compose.api.data.Repo
+import com.psw.quick.Github_compose.api.data.User
 import com.psw.quick.Github_compose.ui.theme.*
 import com.psw.quick.Github_compose.viewmodel.MainViewModel
+import com.skydoves.landscapist.glide.GlideImage
 
 class MainActivity : ComponentActivity() {
 
@@ -60,80 +64,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setUpUI() {
-
         setContent {
             setSystemBarColor()
 
-            val navController = rememberNavController()
-
             GithubComposeTheme {
-                Scaffold(modifier = Modifier.fillMaxSize(),
-                    bottomBar = { BottomNavigationBar(navController) }) {
-                    Navigation(navController = navController)
+                Scaffold(
+                    modifier = Modifier.fillMaxSize()
+                ){
+                    mainView(context = this, vModel = vModel)
                 }
             }
-
             //vModel.getUserInfo()
-
-        }
-
-    }
-}
-
-@Composable
-fun Navigation(navController: NavHostController) {
-    val vModel = getMainViewModel()
-    val context = LocalContext.current
-
-    NavHost(navController, startDestination = NavigationItem.tab1.route) {
-        composable(NavigationItem.tab1.route) {
-            setUpTab1(context, vModel)
-        }
-        composable(NavigationItem.tab2.route) {
-            setUpTab2(navController, vModel)
-        }
-        composable(NavigationItem.tab3.route) {
-            setUpTab3(navController, vModel)
         }
     }
 }
 
-@Composable
-private fun setUpTab3(
-    navController: NavHostController,
-    vModel: MainViewModel
-) {
-    BackHandler {
-        navController.navigate(NavigationItem.tab2.route) {
-            popUpTo(0) {
-                inclusive = true
-            }
-        }
-    } // onBackPressed
 
-    vModel.initUserInfo()
-    tab3UI()
-}
 
 @Composable
-private fun setUpTab2(
-    navController: NavHostController,
-    vModel: MainViewModel
-) {
-    BackHandler {
-        navController.navigate(NavigationItem.tab1.route) {
-            popUpTo(0) {
-                inclusive = true
-            }
-        }
-    } // onBackPressed
-
-    vModel.initUserInfo()
-    tab2UI()
-}
-
-@Composable
-private fun setUpTab1(
+private fun mainView(
     context: Context,
     vModel: MainViewModel
 ) {
@@ -143,8 +92,14 @@ private fun setUpTab1(
         }
     } // onBackPressed
 
+    // 초기화
     vModel.initUserInfo()
-    tab1UI()
+
+    // UI
+    githubListView()
+
+    // 통신
+    vModel.getUserInfo("vintageappmaker")
 }
 
 
@@ -159,7 +114,6 @@ fun mainListUI(fnView : LazyListScope.()-> Unit){
         act.count
     }
 
-    // call the extension function
     scrollState.OnBottomReached {
         Toast.makeText(context, "LazyColumn end ${cnt++}", Toast.LENGTH_LONG).show()
     }
@@ -185,7 +139,7 @@ fun getMainViewModel () : MainViewModel {
 }
 
 @Composable
-fun tab1UI() {
+fun githubListView() {
     val vModel = getMainViewModel()
     Column(
         Modifier
@@ -195,122 +149,51 @@ fun tab1UI() {
         verticalArrangement = Arrangement.Center
 
     ) {
-        makeHeaderUI()
-        Spacer(modifier = Modifier.height(26.dp))
 
+        // 통신상태 변경
         when ( val rst = vModel.uiState.collectAsState().value) {
             is MainViewModel.UIState.Loaded ->{
-                Text(
-                    text = rst.data.toString(),
-                    color = MaterialTheme.colors.headerForegroundcolor(),
-                    fontSize = dpToSp(dp = 30.dp),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(14.dp)
-                )
+                makeHeader()
+                Spacer(modifier = Modifier.height(26.dp))
+                makeGithubList(lst = rst.data)
+            }
+
+            else -> {
+                // 전체크기의 글자 중앙정렬시
+                fullCenterTextView("통신중...")
             }
         }
 
-        makeListUI()
     }
 
 }
 
 @Composable
-fun tab2UI() {
-    val vModel = getMainViewModel()
+private fun fullCenterTextView(s : String) {
     Column(
-        Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .background(Color.Green),
-        verticalArrangement = Arrangement.Center
-
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        makeHeaderUI()
-        Spacer(modifier = Modifier.height(26.dp))
-
-        when ( val rst = vModel.uiState.collectAsState().value) {
-            is MainViewModel.UIState.Loaded ->{
-                Text(
-                    text = rst.data.toString(),
-                    color = MaterialTheme.colors.headerForegroundcolor(),
-                    fontSize = dpToSp(dp = 30.dp),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(14.dp)
-                )
-            }
-        }
-        makeListUI()
+        Text(
+            s,
+            fontSize = dpToSp(dp = 30.dp),
+            style = TextStyle(textAlign = TextAlign.Center)
+        )
     }
-
 }
 
 @Composable
-fun tab3UI() {
-    val vModel = getMainViewModel()
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
-            .background(Color.Magenta),
-        verticalArrangement = Arrangement.Center
-
-    ) {
-        makeHeaderUI()
-        Spacer(modifier = Modifier.height(26.dp))
-
-        when ( val rst = vModel.uiState.collectAsState().value) {
-            is MainViewModel.UIState.Loaded ->{
-                Text(
-                    text = rst.data.toString(),
-                    color = MaterialTheme.colors.headerForegroundcolor(),
-                    fontSize = dpToSp(dp = 30.dp),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(14.dp)
-                )
-            }
-        }
-        makeListUI()
-    }
-
-}
-
-@Composable
-private fun makeListUI() {
-    val lst : MutableList<Int> = mutableListOf()
-    (0..10).forEach { lst.add(it) }
+private fun makeGithubList(lst : List<GithubData>) {
     mainListUI {
-        items(lst){
-            number ->
-            Card(
-                modifier = Modifier
-                    // The space between each card and the other
-                    .padding(10.dp)
-                    .fillMaxWidth()
-                    .fillMaxHeight(),
-                shape = MaterialTheme.shapes.medium,
-                elevation = 5.dp,
-                backgroundColor = MaterialTheme.colors.surface
-            ){
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .padding(vertical = 25.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "\uD83C\uDF3F  Plants in Cosmetics #${number}",
-                        style = MaterialTheme.typography.body1
-                    )
+        items(lst){ data ->
+            when(data){
+                is User -> {
+                    makeUserCard(data)
+                }
+
+                is Repo ->{
+                    makeRepoCard(data)
                 }
             }
         }
@@ -320,13 +203,175 @@ private fun makeListUI() {
         }
     }
 }
-@Composable
-fun dpToSp(dp: Dp) = with(LocalDensity.current) { dp.toSp() }
 
 @Composable
-private fun makeHeaderUI() {
+private fun makeUserCard(data : User) {
+    Card(
+        modifier = Modifier
+            .padding(10.dp)
+            .fillMaxWidth()
+            .fillMaxHeight(),
+        shape = MaterialTheme.shapes.medium,
+        elevation = 5.dp,
+        backgroundColor = MaterialTheme.colors.surface
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(vertical = 25.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
 
-    val vModel = getMainViewModel()
+            GlideImage(
+                modifier = Modifier
+                    .padding(start = 16.dp)
+                    .width(80.dp)
+                    .height(80.dp)
+                    .clip(CircleShape),
+                imageModel = "${data.avatar_url}",
+                contentScale = ContentScale.Crop)
+
+            Text("${data.bio}",
+                Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(start = 25.dp),
+                style = MaterialTheme.typography.body1
+            )
+        }
+    }
+}
+
+private fun makeStar(n : Int) : String{
+    if (n == 0) return "\uD83D\uDE36"
+    if (n >  0) return "⭐ X ${n}"
+    var s = ""
+    (1..n).forEach { s = s + "⭐" }
+    return s
+}
+@Composable
+private fun makeRepoCard(data : Repo) {
+    Card(
+        modifier = Modifier
+            .padding(10.dp)
+            .fillMaxWidth()
+            .fillMaxHeight(),
+        shape = RoundedCornerShape(12.dp), //MaterialTheme.shapes.medium,
+        elevation = 5.dp,
+        backgroundColor = MaterialTheme.colors.surface
+    ) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .padding(vertical = 25.dp),
+            ) {
+
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()) {
+                Text(
+                    "■️  이름",
+                    Modifier
+                        .width(100.dp)
+                        .fillMaxHeight()
+                        .align(Alignment.CenterVertically)
+                        .padding(start = 16.dp),
+                    style = MaterialTheme.typography.body1
+                )
+
+                Text(
+                    text = "${data.name}",
+                    Modifier
+                        .padding(end = 16.dp)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .align(Alignment.CenterVertically),
+                    style = TextStyle(fontSize = 26.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()) {
+
+                Text(
+                    "■️ ️ 설명",
+                    Modifier
+                        .width(100.dp)
+                        .padding(start = 16.dp),
+                    style = MaterialTheme.typography.body1
+                )
+
+                Text(
+                    "${data.description ?: "없음"}",
+                    Modifier.padding(end = 16.dp),
+                    style = MaterialTheme.typography.body1
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(25.dp))
+
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()) {
+
+                Text(
+                    "■️  기타",
+                    Modifier
+                        .width(100.dp)
+                        .padding(start = 16.dp),
+                    style = MaterialTheme.typography.body1
+                )
+
+                Column() {
+                    Row() {
+                        Text(
+                            "star",
+                            Modifier
+                                .width(50.dp),
+                            style = MaterialTheme.typography.body1
+                        )
+
+                        Text(
+                            "${makeStar( data.stargazers_count)} ",
+                            Modifier
+                                .padding(end = 16.dp)
+                                .fillMaxWidth(),
+                            style = MaterialTheme.typography.body1
+                        )
+                    }
+
+                    Row() {
+                        Text(
+                            "size",
+                            Modifier
+                                .width(50.dp),
+                            style = MaterialTheme.typography.body1
+                        )
+
+                        Text(
+                            "${data.size}kb",
+                            Modifier
+                                .padding(end = 16.dp)
+                                .fillMaxWidth(),
+                            style = MaterialTheme.typography.body1
+                        )
+                    }
+
+                }
+            }
+        }
+
+    }
+}
+
+
+@Composable
+private fun makeHeader() {
 
     Box(
         Modifier
@@ -336,9 +381,10 @@ private fun makeHeaderUI() {
                 color = MaterialTheme.colors.headerBackgroundcolor()
             )
             .clickable(onClick = {
-                vModel.getUserInfo()
+
             })
     ) {
+
         Text(
             text = "Header",
             color = MaterialTheme.colors.headerForegroundcolor(),
@@ -357,66 +403,12 @@ private fun makeHeaderUI() {
 @Composable
 fun DefaultPreview() {
 
-    val navController = rememberNavController()
-
+    val vModel = getMainViewModel()
     GithubComposeTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colors.bottomNaviBackgroundcolor()
-        ) {
-            Scaffold(
-                bottomBar = { BottomNavigationBar(navController) }) {
-                Navigation(navController = navController)
-            }
+        Scaffold(
+            modifier = Modifier.fillMaxSize()
+        ){
+            mainView(context = LocalContext.current, vModel = vModel)
         }
     }
-}
-
-@Composable
-fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(
-        NavigationItem.tab1,
-        NavigationItem.tab2,
-        NavigationItem.tab3
-    )
-
-    BottomNavigation(
-        backgroundColor = MaterialTheme.colors.bottomNaviBackgroundcolor(),
-        contentColor = Color.White
-    ) {
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
-        val navPrevStackEntry =  navController.previousBackStackEntry
-        navPrevStackEntry?.apply {
-            val name = this.destination?.route
-            name
-        }
-        val currentRoute = navBackStackEntry?.destination?.route
-        items.forEach { item ->
-            BottomNavigationItem(
-                icon = { Icon(painterResource(id = item.icon), contentDescription = item.title) },
-                label = { Text(text = item.title) },
-                selectedContentColor   = MaterialTheme.colors.bottomNaviForegroundcolor(),
-                unselectedContentColor = MaterialTheme.colors.bottomNaviForegroundcolor().copy(0.4f),
-                alwaysShowLabel = true,
-                selected = currentRoute == item.route,
-                onClick = {
-                    navController.navigate(item.route) {
-                        navController.graph.startDestinationRoute?.let { route ->
-                            popUpTo(route) {
-                                saveState = true
-                            }
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                }
-            )
-        }
-    }
-}
-
-sealed class NavigationItem(var route: String, var icon: Int, var title: String) {
-    object tab1 : NavigationItem("tab1", android.R.drawable.ic_menu_camera ,  "tab1")
-    object tab2 : NavigationItem("tab2", android.R.drawable.ic_btn_speak_now, "tab2")
-    object tab3 : NavigationItem("tab3", android.R.drawable.ic_input_add,      "tab3")
 }
