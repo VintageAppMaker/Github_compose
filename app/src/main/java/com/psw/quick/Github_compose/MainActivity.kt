@@ -60,7 +60,8 @@ class MainActivity : ComponentActivity() {
         val systemUiController = rememberSystemUiController()
         if (isSystemInDarkTheme()) {
             systemUiController.setSystemBarsColor(
-                color = Color.Transparent
+                //color = Color.Transparent
+                color = MaterialTheme.colors.bottomNaviBackgroundcolor()
             )
         } else {
             systemUiController.setSystemBarsColor(
@@ -118,7 +119,7 @@ private fun mainView(
 
 
 @Composable
-fun mainList(fnView : LazyListScope.()-> Unit){
+private fun mainList(fnView : LazyListScope.()-> Unit){
 
     val scrollState = rememberLazyListState()
     val vModel = getMainViewModel()
@@ -141,14 +142,14 @@ fun mainList(fnView : LazyListScope.()-> Unit){
 }
 
 @Composable
-fun getMainViewModel () : MainViewModel {
+private fun getMainViewModel () : MainViewModel {
     val context = LocalContext.current
     val vModel = ( context as MainActivity).vModel
     return vModel
 }
 
 @Composable
-fun githubListView() {
+private fun githubListView() {
     val vModel = getMainViewModel()
 
     // 로딩 프로그레시브 처리
@@ -176,17 +177,23 @@ fun githubListView() {
                     Spacer(modifier = Modifier.height(12.dp))
                     makeHeader()
                     Spacer(modifier = Modifier.height(26.dp))
-                    makeGithubList(lst = rst.data)
+                    MakeGithubList(lst = rst.data)
+                }
+
+                // 데이터 없음
+                is MainViewModel.UIState.Nodata ->{
+                    Spacer(modifier = Modifier.height(12.dp))
+                    makeHeader()
+                    Spacer(modifier = Modifier.height(26.dp))
+                    FullCenterTextView("\uD83D\uDC49 검색된 데이터가 없습니다.")
                 }
 
                 // 에러
                 is MainViewModel.UIState.Error ->{
-                    fullCenterTextView("\uD83D\uDED1 ${rst.message}")
-                }
-
-                // 준비중
-                is MainViewModel.UIState.Idle ->{
-                    fullCenterTextView("⏳ 준비중...")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    makeHeader()
+                    Spacer(modifier = Modifier.height(26.dp))
+                    FullCenterTextView("\uD83D\uDED1 ${rst.message}")
                 }
             }
         }
@@ -198,7 +205,7 @@ fun githubListView() {
 }
 
 @Composable
-private fun fullCenterTextView(s : String) {
+private fun FullCenterTextView(s : String) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -213,7 +220,7 @@ private fun fullCenterTextView(s : String) {
 }
 
 @Composable
-private fun makeGithubList(lst : List<GithubData>) {
+private fun MakeGithubList(lst : List<GithubData>) {
     mainList {
         items(lst){ data ->
             when(data){
@@ -445,7 +452,6 @@ fun getSizeString(nSize : Long): String {
         nSize < 1000        -> "${nSize}kb"
         nSize > 1000 * 1000 -> "${nSize / (1000 * 1000)}G"
         else                -> "${nSize /1000}mb"
-
     }
 }
 

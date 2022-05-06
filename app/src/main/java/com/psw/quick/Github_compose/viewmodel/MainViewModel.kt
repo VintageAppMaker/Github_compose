@@ -8,6 +8,7 @@ import com.psw.quick.Github_compose.api.data.Repo
 import com.psw.quick.Github_compose.datasource.Api
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.HttpException
@@ -22,7 +23,7 @@ class MainViewModel : ViewModel() {
 
     // 통신관련
     // 일반적으로 외부전용으로는 읽기전용으로 StateFlow를 사용한다.
-    private val _uiState = MutableStateFlow<UIState>(UIState.Idle)
+    private val _uiState = MutableStateFlow<UIState>(UIState.Nodata)
     val uiState: StateFlow<UIState> = _uiState
 
     // 화면관련
@@ -39,7 +40,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun initUserInfo(){
-        _uiState.value = UIState.Idle
+        _uiState.value = UIState.Nodata
     }
 
     fun getUserInfo(name : String ) {
@@ -59,10 +60,7 @@ class MainViewModel : ViewModel() {
                 }
             }
             val userInfo = Api.github.getUser(name)
-
             listRepo.add(0, userInfo)
-
-
 
             // 누적한다.
             lstMain = listRepo
@@ -81,14 +79,19 @@ class MainViewModel : ViewModel() {
 
             if (e is HttpException) {
                 when (e.code()){
-                    500 -> {
-                        UIState.Error(
-                            "500 Error"
-                        )}
-
+                    404 -> {
+                        // 사용자 정보가 없을 경우
+                        val body = e.response()?.errorBody()?.string()
+                        val jsonObject = JSONObject(body)
+                        var msg = jsonObject.optString("message")
+                        if (msg == "Not Found") _uiState.value = UIState.Nodata
+                    }
                     else -> {
-                        UIState.Error(
-                            "${e.code()} Error"
+                        // 정의되지 않은 에러처리
+                        val message = e.response()?.errorBody()?.string() ?: "unknwon"
+                        val str = "${e.code()} : $message"
+                        _uiState.value = UIState.Error(
+                            str
                         )
                     }
                 }
@@ -161,7 +164,7 @@ class MainViewModel : ViewModel() {
 
     // UI 상태
     sealed class UIState {
-        object Idle : UIState()
+        object Nodata : UIState()
         object Loading : UIState()
         class Loaded(val data: List<GithubData>) : UIState()
         class Error(val message: String) : UIState()
