@@ -498,6 +498,8 @@ private fun makeHeader() {
             maxLines = 1,
             singleLine = true
         )
+
+        // LaunchedEffect는 값이 변경되면 호출되는 코루틴
         LaunchedEffect(Unit) {
             //focusRequester.requestFocus()
         }

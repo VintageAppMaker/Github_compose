@@ -30,7 +30,8 @@ fun LazyListState.OnBottomReached(
         }
     }
 
-    // Convert the state into a cold flow and collect
+    // LaunchedEffect는 값이 변경되면 호출되는 코루틴
+    // 코루틴 관련 suspend 함수를 쓸 떄 사용해야 함
     LaunchedEffect(shouldLoadMore){
         snapshotFlow { shouldLoadMore.value }
             .collect {
