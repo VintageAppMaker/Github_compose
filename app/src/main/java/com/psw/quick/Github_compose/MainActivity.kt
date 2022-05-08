@@ -313,8 +313,9 @@ private fun makeUserCard(data : User) {
 }
 
 private fun makeStar(n : Int) : String{
+    val MAX_SHOW = 10
     if (n == 0) return "\uD83D\uDE36"
-    if (n >  0) return "⭐ X ${n}"
+    if (n >  MAX_SHOW) return "\uD83E\uDD29 X ${n}"
     var s = ""
     (1..n).forEach { s = s + "⭐" }
     return s
